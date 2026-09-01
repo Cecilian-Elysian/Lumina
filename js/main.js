@@ -31,6 +31,22 @@ function getByPath(obj, path) {
 }
 
 /**
+ * HTML 转义：图片名等来自接口的字符串插入页面前先转义，
+ * 防止特殊字符（< > " ' &）破坏页面结构或注入脚本（XSS）
+ *
+ * @param {string} s 原始字符串
+ * @returns {string} 转义后的安全字符串
+ */
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
  * 根据 CONFIG.authType 生成请求头对象
  * @returns {Object} fetch 用的 headers
  */
@@ -55,27 +71,58 @@ function buildHeaders() {
  * ============================================================ */
 
 /**
- * 加载图片列表：
- *   1. apiBase/token 任一为空 → 直接返回兜底图（未配置图床的演示模式）
- *   2. 请求图床接口，按 imgField 路径提取数组
- *   3. 任何一步失败 → 打印警告并回退兜底图，保证页面永远有图可看
+ * 把图床接口数组元素映射为统一的 { url, name, thumb } 格式。
+ * 支持嵌套字段：字段配置可用点分路径（如 'links.url'）。
  *
- * @returns {Promise<Array<{url: string, name: string}>>}
- *          统一格式的图片对象数组 { url, name }
+ * @param {Object} item 图床数组里的单个元素
+ * @returns {{url:string, name:string, thumb:string}} 统一图片对象
+ */
+function mapImage(item) {
+  // 原图直链（必填字段，取不到则该元素会被过滤）
+  const url = getByPath(item, CONFIG.imgUrlField);
+
+  // 缩略图地址（可选配置 imgThumbField；取不到时回退原图，
+  // 卡片小图用缩略图加载更快，灯箱大图用原图保证清晰）
+  const thumb = (CONFIG.imgThumbField && getByPath(item, CONFIG.imgThumbField)) || url;
+
+  // 图片名称（可选配置 imgNameField；灯箱底部展示用）
+  const name = (CONFIG.imgNameField && getByPath(item, CONFIG.imgNameField)) || '';
+
+  return { url, name, thumb };
+}
+
+/**
+ * 加载图片列表：
+ *   mode = 'proxy'  → 请求本站 /api/images 代理（token 在服务端，前端零暴露）
+ *   mode = 'direct' → 前端直连图床（token 在 config.js，会暴露给访问者）
+ *   任何一步失败 → 打印警告并回退兜底图，保证页面永远有图可看
+ *
+ * @returns {Promise<Array<{url: string, name: string, thumb: string}>>}
+ *          统一格式的图片对象数组 { url, name, thumb }
  */
 async function loadImages() {
-  // —— 情况一：未配置图床，使用兜底演示图 ——
-  if (!CONFIG.apiBase || !CONFIG.token) {
-    console.info('[Lumina] 未配置图床接口，使用兜底演示图。请在 js/config.js 中填写。');
-    return CONFIG.fallbackImages.map(url => ({ url, name: '' }));
+  /* ---- 根据 mode 决定请求地址与鉴权头 ---- */
+  let url, headers;
+
+  if (CONFIG.mode === 'proxy') {
+    // 代理模式：请求同源 Pages Function（functions/api/images.js）
+    // 本地需用 `npx wrangler pages dev .` 运行才有该接口；
+    // 普通 http.server 下 /api/images 不存在 → 自动回退兜底图（预期行为）
+    url = '/api/images?per_page=' + CONFIG.perPage;
+    headers = { Accept: 'application/json' }; // 代理注入 token，前端不带
+  } else {
+    // 直连模式：apiBase/token 任一为空 → 直接使用兜底演示图
+    if (!CONFIG.apiBase || !CONFIG.token) {
+      console.info('[Lumina] 未配置图床接口，使用兜底演示图。请在 js/config.js 中填写。');
+      return CONFIG.fallbackImages.map(url => ({ url, name: '', thumb: url }));
+    }
+    url = CONFIG.apiBase + CONFIG.listPath +
+          '?order=newest&per_page=' + CONFIG.perPage;
+    headers = buildHeaders(); // 带 Authorization 鉴权头
   }
 
   try {
-    // —— 情况二：请求图床列表接口 ——
-    // 拼接：apiBase + listPath + 分页参数（per_page 是常见参数名，若你的
-    // 图床用别的参数名如 limit/size，请自行替换这里的查询串）
-    const url = CONFIG.apiBase + CONFIG.listPath + '?per_page=' + CONFIG.perPage;
-    const res = await fetch(url, { headers: buildHeaders() });
+    const res = await fetch(url, { headers });
 
     // HTTP 状态异常（401 鉴权失败 / 404 路径错误 / 429 限流等）
     if (!res.ok) {
@@ -90,13 +137,11 @@ async function loadImages() {
       throw new Error('imgField 路径 "' + CONFIG.imgField + '" 未命中数组，请检查 config.js 字段配置');
     }
 
-    // 映射为统一的 { url, name } 格式（过滤掉缺 URL 的脏数据）
+    // 映射为统一格式 → 过滤缺 URL 的脏数据 → 只保留前 perPage 张
     const images = arr
-      .map(item => ({
-        url: item[CONFIG.imgUrlField],
-        name: CONFIG.imgNameField ? (item[CONFIG.imgNameField] || '') : '',
-      }))
-      .filter(it => it.url); // 丢弃没有 URL 的元素
+      .map(mapImage)
+      .filter(it => it.url)
+      .slice(0, CONFIG.perPage);
 
     if (images.length === 0) throw new Error('图片 URL 字段 "' + CONFIG.imgUrlField + '" 未命中');
 
@@ -106,7 +151,7 @@ async function loadImages() {
   } catch (err) {
     // —— 情况三：请求失败，回退兜底图（页面不白屏） ——
     console.warn('[Lumina] 图床加载失败：', err.message, '→ 已回退兜底图。');
-    return CONFIG.fallbackImages.map(url => ({ url, name: '' }));
+    return CONFIG.fallbackImages.map(url => ({ url, name: '', thumb: url }));
   }
 }
 
@@ -159,12 +204,13 @@ function renderWall(images) {
     const slice = images.filter((_, i) => i % rowCount === r);
 
     // 生成本行的卡片 HTML（data-index 记录在全墙 gallery 中的索引，灯箱要用）
+    // 卡片小图用缩略图（thumb）加载更快；name 经过转义防 XSS
     const cardsHtml = slice
       .map((img, i) => {
         const globalIndex = r + i * rowCount; // 反推该卡片在 gallery 中的下标
         return (
           '<figure class="card" data-index="' + globalIndex + '">' +
-          '  <img src="' + img.url + '" loading="lazy" alt="' + (img.name || '图片') + '">' +
+          '  <img src="' + escapeHtml(img.thumb) + '" loading="lazy" alt="' + escapeHtml(img.name || '图片') + '">' +
           '</figure>'
         );
       })
