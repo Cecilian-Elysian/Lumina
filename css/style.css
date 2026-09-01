@@ -1,0 +1,293 @@
+/* ============================================================
+ * 流动图片墙 — 全部样式
+ * ------------------------------------------------------------
+ * 目录（按顺序）：
+ *   1. CSS 变量（主题配色/尺寸，改主题只需改变量）
+ *   2. 基础重置与页面背景
+ *   3. 标题区 / 页脚
+ *   4. 图片墙：行(.row) + 轨道(.row-track) + 无缝滚动动画
+ *   5. 卡片(.card)与悬停效果
+ *   6. 加载占位
+ *   7. 灯箱（遮罩/大图/箭头/关闭/说明文字）
+ *   8. 响应式（平板 / 手机）
+ *   9. 无障碍：prefers-reduced-motion 适配
+ * ============================================================ */
+
+/* ============================================================
+ * 1. CSS 变量 — 主题定制中心
+ * ------------------------------------------------------------
+ * 想换配色/尺寸只需修改这里，下方所有规则自动引用。
+ * ============================================================ */
+:root {
+  /* —— 浅色清爽极简主题 —— */
+  --bg-start:   #f7f7fa;                 /* 页面背景渐变·起点（近白） */
+  --bg-end:     #eceef2;                 /* 页面背景渐变·终点（浅灰） */
+  --text-main:  #2b2f36;                 /* 主文字色（深灰，非纯黑更柔和） */
+  --text-sub:   #8a9099;                 /* 次要文字色（副标题/页脚） */
+  --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);  /* 卡片柔和投影 */
+
+  /* —— 尺寸 —— */
+  --card-height: 230px;                  /* 卡片图片统一高度 */
+  --card-radius: 14px;                   /* 卡片圆角 */
+  --row-gap:    16px;                    /* 卡片之间的横向间距 */
+  --row-margin: 10px;                    /* 行与行的纵向间距 */
+}
+
+/* ============================================================
+ * 2. 基础重置与页面背景
+ * ============================================================ */
+
+/* 清除浏览器默认的外边距（不同浏览器默认值不一致） */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  /* 系统字体栈：各平台自动选最优中文字体，无需外部字体文件 */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+               "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+               sans-serif;
+  color: var(--text-main);
+
+  /* 顶部到底部的柔和渐变背景，且固定不随滚动 */
+  background: linear-gradient(180deg, var(--bg-start) 0%, var(--bg-end) 100%)
+              fixed;
+
+  /* 纵向最小高度：保证页脚在内容不足时也贴底 */
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ============================================================
+ * 3. 标题区 / 页脚
+ * ============================================================ */
+
+.site-header {
+  text-align: center;
+  padding: 48px 20px 32px; /* 上左右留白充足，贴合极简风格 */
+}
+
+.site-title {
+  font-size: 2.4rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;  /* 字间距稍大更有仪式感 */
+}
+
+.site-subtitle {
+  margin-top: 10px;
+  color: var(--text-sub);
+  font-size: 0.95rem;
+  letter-spacing: 0.35em;  /* 大字距的精致小字副标题 */
+}
+
+.site-footer {
+  text-align: center;
+  padding: 28px 20px 36px;
+  color: var(--text-sub);
+  font-size: 0.8rem;
+}
+
+/* 页脚链接：低调整体中提供一点可识别性 */
+.site-footer a { color: var(--text-sub); text-decoration: none; }
+.site-footer a:hover { color: var(--text-main); text-decoration: underline; }
+
+/* ============================================================
+ * 4. 图片墙：行 + 轨道 + 无缝滚动
+ * ============================================================
+ * 结构（由 main.js 生成）：
+ *   .wall
+ *     .row          ← 每行：横向裁剪窗口（overflow hidden）
+ *       .row-track  ← 轨道：内含两份复制的卡片，做位移动画
+ *         .card × N × 2
+ * ============================================================ */
+
+/* 让图片墙区域可纵向弹性伸展（页脚贴底） */
+.wall { flex: 1; }
+
+/* 行：只露出本行内容，超出部分隐藏（滚动窗口） */
+.row {
+  overflow: hidden;
+  padding: var(--row-margin) 0; /* 上下留出行间距 */
+}
+
+/*
+ * 轨道：flex 横排 + 不换行，内容超出容器宽度。
+ * flex:none 防止卡片被压缩。
+ * 动画名 scroll 定义在下方 @keyframes；
+ * 行内方向/时长由 main.js 通过内联 style 注入
+ * （animation-direction / animation-duration）。
+ */
+.row-track {
+  display: flex;
+  flex: none;
+  gap: var(--row-gap);
+  width: max-content;              /* 轨道按内容自然撑开 */
+  animation: scroll 40s linear infinite;
+}
+
+/*
+ * 无缝循环的核心动画：
+ *   从 translateX(0) 平移到 translateX(-50%)
+ *   轨道内容是两份复制，-50% 恰好是一份的宽度，
+ *   循环瞬间视觉上与起点完全重合 → 无缝。
+ * 反向行（animation-direction: reverse）即从 -50% 滑向 0（右→左）。
+ */
+@keyframes scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+/* 悬停暂停：鼠标停在某行上时该行停下便于点图 */
+.row:hover .row-track { animation-play-state: paused; }
+
+/* ============================================================
+ * 5. 卡片与悬停效果
+ * ============================================================ */
+
+/* 卡片：figure 自带语义（配图块），作为点击区域 */
+.card {
+  /* 宽度取 main.js 注入的 --card-w 变量（config.js 的 cardWidth） */
+  flex: 0 0 var(--card-w, 300px);
+  cursor: pointer;                  /* 提示可点击 */
+}
+
+.card img {
+  display: block;
+  width: 100%;
+  height: var(--card-height);       /* 统一高度，超出裁剪 */
+  object-fit: cover;                /* 填满卡片且不变形 */
+  border-radius: var(--card-radius);
+  box-shadow: var(--card-shadow);
+  transition: transform 0.35s ease, box-shadow 0.35s ease; /* 悬停过渡 */
+}
+
+/* 悬停：图片轻微上浮 + 投影加深（克制的极简交互） */
+.card:hover img {
+  transform: translateY(-6px);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.12);
+}
+
+/* ============================================================
+ * 6. 加载占位
+ * ============================================================ */
+.loading {
+  text-align: center;
+  color: var(--text-sub);
+  padding: 80px 0;
+  letter-spacing: 0.2em;
+}
+
+/* ============================================================
+ * 7. 灯箱（大图预览）
+ * ============================================================ */
+
+/* 遮罩层：全屏半透明黑，图片居中 */
+.lightbox {
+  position: fixed;
+  inset: 0;                          /* 等价于 top/right/bottom/left:0 */
+  z-index: 100;                      /* 盖在所有内容之上 */
+  background: rgba(20, 22, 28, 0.72);/* 深色遮罩衬托大图 */
+  backdrop-filter: blur(6px);        /* 背景毛玻璃效果（不支持时自动降级） */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 隐藏工具类：main.js 通过增删此类控制灯箱显隐 */
+.lightbox.hidden { display: none; }
+
+/* 大图：限制在视口 88% 内，圆角 + 投影 */
+.lb-img {
+  max-width: 88vw;
+  max-height: 82vh;
+  object-fit: contain;               /* 完整显示图片不裁剪 */
+  border-radius: 10px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+  user-select: none;                 /* 防止拖选 */
+}
+
+/* 底部说明文字：悬浮于遮罩下方 */
+.lb-caption {
+  position: absolute;
+  bottom: 26px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.9rem;
+  letter-spacing: 0.1em;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6); /* 深色图上也能读清 */
+  pointer-events: none;              /* 不挡住下层点击 */
+}
+
+/* 灯箱按钮通用样式：半透明白圆钮 */
+.lb-btn {
+  position: absolute;                /* 相对遮罩定位 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.25s ease;
+  -webkit-tap-highlight-color: transparent; /* 去掉移动端点按高亮 */
+}
+
+.lb-btn:hover { background: rgba(255, 255, 255, 0.28); }
+
+/* 右上角关闭按钮 */
+.lb-close { top: 22px; right: 26px; font-size: 1.4rem; }
+/* 左右切换箭头：垂直居中，贴两侧 */
+.lb-prev  { left: 26px;  top: 50%; transform: translateY(-50%); }
+.lb-next  { right: 26px; top: 50%; transform: translateY(-50%); }
+
+/* ============================================================
+ * 8. 响应式
+ * ------------------------------------------------------------
+ * 通过覆盖 CSS 变量 + 隐藏部分行实现：
+ *   平板(≤1100px)：卡片变小
+ *   手机(≤768px) ：只显示前 2 行（后两行隐藏），卡片更小
+ * ============================================================ */
+
+/* 平板：缩小卡片与标题 */
+@media (max-width: 1100px) {
+  :root {
+    --card-height: 190px;
+  }
+  .site-title { font-size: 1.9rem; }
+}
+
+/* 手机：只保留前两行（:nth-child(n+3) = 第3行起隐藏），
+ * 卡片进一步缩小，间距收紧 */
+@media (max-width: 768px) {
+  :root {
+    --card-height: 140px;
+    --card-radius: 10px;
+    --row-gap: 10px;
+    --row-margin: 6px;
+  }
+  .row:nth-child(n + 3) { display: none; } /* JS 已按行分图，隐藏即可 */
+  .site-header { padding: 32px 16px 20px; }
+  .site-title  { font-size: 1.6rem; }
+  .site-subtitle { letter-spacing: 0.2em; font-size: 0.8rem; }
+
+  /* 灯箱按钮在窄屏略缩 */
+  .lb-btn { width: 40px; height: 40px; }
+  .lb-prev { left: 10px; }
+  .lb-next { right: 10px; }
+}
+
+/* ============================================================
+ * 9. 无障碍：用户系统开启"减少动态效果"时停止流动
+ *    （避免眩晕不适，属于良好的 prefers-reduced-motion 实践）
+ * ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  .row-track { animation: none; }
+  .card img,
+  .lb-btn    { transition: none; }
+}
