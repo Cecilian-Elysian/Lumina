@@ -107,8 +107,8 @@ const CONFIG = {
    * 三、图片墙布局
    * ---------------------------------------------------------- */
 
-  // 叠层行数（4 = 四行，奇偶行自动反向流动；手机端会自动减行，见 css）
-  rows: 4,
+  // 叠层行数（3 = 三行，奇偶行自动反向流动；手机端会自动减行，见 css）
+  rows: 3,
 
   // 每张卡片的图片宽度（px）。高度统一、宽度按此值等比
   cardWidth: 300,
@@ -124,21 +124,21 @@ const CONFIG = {
    * 你也可以换成自己的图片直链。
    * ---------------------------------------------------------- */
   fallbackImages: [
-    'https://picsum.photos/seed/lumina-01/600/400',
-    'https://picsum.photos/seed/lumina-02/600/400',
-    'https://picsum.photos/seed/lumina-03/600/400',
-    'https://picsum.photos/seed/lumina-04/600/400',
-    'https://picsum.photos/seed/lumina-05/600/400',
-    'https://picsum.photos/seed/lumina-06/600/400',
-    'https://picsum.photos/seed/lumina-07/600/400',
-    'https://picsum.photos/seed/lumina-08/600/400',
-    'https://picsum.photos/seed/lumina-09/600/400',
-    'https://picsum.photos/seed/lumina-10/600/400',
-    'https://picsum.photos/seed/lumina-11/600/400',
-    'https://picsum.photos/seed/lumina-12/600/400',
-    'https://picsum.photos/seed/lumina-13/600/400',
-    'https://picsum.photos/seed/lumina-14/600/400',
-    'https://picsum.photos/seed/lumina-15/600/400',
-    'https://picsum.photos/seed/lumina-16/600/400',
+    'https://bu.dusays.com/2026/08/26/6a8e4886824f2.png',
+    'https://bu.dusays.com/2026/08/25/6a8da73da2991.jpg',
+    'https://bu.dusays.com/2026/08/07/6a7543c1b449f.jpg',
+    'https://bu.dusays.com/2026/08/07/6a7543c13d1ba.jpg',
+    'https://bu.dusays.com/2026/08/07/6a7543c080d97.jpg',
+    'https://bu.dusays.com/2026/08/07/6a7543be8af5f.jpg',
+    'https://bu.dusays.com/2026/08/07/6a7543b4e47a6.jpg',
+    'https://bu.dusays.com/2026/08/05/6a72df8a995d2.jpg',
+    'https://bu.dusays.com/2026/08/04/6a71e68e7c675.jpg',
+    'https://bu.dusays.com/2026/08/04/6a71cd89ebd59.jpg',
+    'https://bu.dusays.com/2026/08/07/6a7543b142698.jpg',
+    'https://bu.dusays.com/2026/08/07/6a7543aec18c9.jpg',
+    'https://bu.dusays.com/2026/08/07/6a7543aec93d3.jpg',
+    'https://bu.dusays.com/2026/08/05/6a72e1e316838.jpg',
+    'https://bu.dusays.com/2026/08/04/6a71ed5d3acdd.jpg',
+    'https://bu.dusays.com/2026/08/04/6a71e67ca957f.jpg',
   ],
 };
