@@ -20,6 +20,11 @@
   <meta charset="UTF-8">
   <!-- 视口设置：让手机端按设备宽度渲染，禁用缩放抖动 -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- 主题色：移动浏览器顶部状态栏颜色，与页面背景一致 -->
+  <meta name="theme-color" content="#f7f7fa">
+  <!-- 提前与图床建立 TCP/TLS 连接,首图加载提速 ~100-300ms -->
+  <link rel="preconnect" href="https://7bu.top" crossorigin>
+  <link rel="dns-prefetch" href="https://bu.dusays.com">
   <!-- 页面描述（利于 SEO / 分享摘要） -->
   <meta name="description" content="流动图片墙 — 多行叠层水平流动的图片展示墙">
   <!-- 浏览器标签页标题 -->
@@ -78,6 +83,9 @@
 
   <!-- 配置文件必须先于主逻辑加载（main.js 依赖全局 CONFIG） -->
   <script src="js/config.js"></script>
+  <!-- 焦点数据 + 运行时（必须在 main.js 之前，定义全局 FOCAL_POINTS / FocalRuntime） -->
+  <script src="js/focal-points.js"></script>
+  <script src="js/focal-runtime.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

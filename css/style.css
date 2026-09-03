@@ -155,9 +155,14 @@ body {
   width: 100%;
   height: var(--card-height);       /* 统一高度，超出裁剪 */
   object-fit: cover;                /* 填满卡片且不变形 */
+  /* 焦点位置:由 js/focal-runtime.js 根据 js/focal-points.js 注入;
+     无数据时回退到 "水平居中 / 偏上 25%"(适合多数人像构图)。*/
+  object-position: var(--focal-x, 50%) var(--focal-y, 25%);
   border-radius: var(--card-radius);
   box-shadow: var(--card-shadow);
   transition: transform 0.35s ease, box-shadow 0.35s ease; /* 悬停过渡 */
+
+  background: #e9ebef;                        /* 加载前淡灰底,避免白闪 */
 }
 
 /* 悬停：图片轻微上浮 + 投影加深（克制的极简交互） */
@@ -203,7 +208,12 @@ body {
   border-radius: 10px;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
   user-select: none;                 /* 防止拖选 */
+
+  /* —— 换图淡入(由 main.js 在加载期间加 .lb-loading) —— */
+  opacity: 1;
+  transition: opacity 0.2s ease;
 }
+.lb-img.lb-loading { opacity: 0; }
 
 /* 底部说明文字：悬浮于遮罩下方 */
 .lb-caption {

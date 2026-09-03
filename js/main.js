@@ -71,24 +71,69 @@ function buildHeaders() {
  * ============================================================ */
 
 /**
- * 把图床接口数组元素映射为统一的 { url, name, thumb } 格式。
+ * 把图床接口数组元素映射为统一的 { url, name, thumb, srcset } 格式。
  * 支持嵌套字段：字段配置可用点分路径（如 'links.url'）。
  *
  * @param {Object} item 图床数组里的单个元素
- * @returns {{url:string, name:string, thumb:string}} 统一图片对象
+ * @returns {{url:string, name:string, thumb:string, srcset:string}} 统一图片对象
  */
 function mapImage(item) {
   // 原图直链（必填字段，取不到则该元素会被过滤）
   const url = getByPath(item, CONFIG.imgUrlField);
 
-  // 缩略图地址（可选配置 imgThumbField；取不到时回退原图，
-  // 卡片小图用缩略图加载更快，灯箱大图用原图保证清晰）
-  const thumb = (CONFIG.imgThumbField && getByPath(item, CONFIG.imgThumbField)) || url;
+  // 缩略图地址（可选配置 imgThumbField；取不到时回退原图）
+  const rawThumb = (CONFIG.imgThumbField && getByPath(item, CONFIG.imgThumbField)) || url;
+
+  // 按 CONFIG.thumbRewrite 改写缩略图 URL（失败时回退原缩略图）
+  const thumb = rewriteThumb(rawThumb);
 
   // 图片名称（可选配置 imgNameField；灯箱底部展示用）
   const name = (CONFIG.imgNameField && getByPath(item, CONFIG.imgNameField)) || '';
 
-  return { url, name, thumb };
+  // srcset:1x 用缩略图（省流量），2x 自动改用原图（Retina 屏清晰）
+  const srcset = `${thumb} 1x, ${url} 2x`;
+
+  return { url, name, thumb, srcset };
+}
+
+/**
+ * 按 CONFIG.thumbRewrite 改写缩略图 URL
+ * 规则：
+ *   null/''      → 不改写，原样返回
+ *   'query:<p>'  → 追加查询参数 ?<p>=thumbWidth（URL API 安全拼接）
+ *   'replace:<a>::<b>' → 路径子串替换，'::' 是分隔符（避免与 URL 字符冲突）
+ *   'append:<s>' → 字符串末尾追加
+ * 任何一步异常都回退原 URL，并在 console 警告，便于排查。
+ *
+ * @param {string} thumb 原始缩略图 URL
+ * @returns {string} 改写后的 URL（失败回退原值）
+ */
+function rewriteThumb(thumb) {
+  const rule = CONFIG.thumbRewrite;
+  if (!rule) return thumb;
+  try {
+    const separator = rule.indexOf(':');
+    const mode = separator === -1 ? rule : rule.slice(0, separator);
+    const arg = separator === -1 ? '' : rule.slice(separator + 1);
+    if (mode === 'query') {
+      const u = new URL(thumb);
+      u.searchParams.set(arg, String(CONFIG.thumbWidth));
+      return u.toString();
+    }
+    if (mode === 'replace') {
+      const parts = arg.split('::');
+      const from = parts[0];
+      const to = parts.slice(1).join('::'); // 允许替换值里出现 '::'
+      return from ? thumb.split(from).join(to) : thumb;
+    }
+    if (mode === 'append') {
+      return thumb + arg;
+    }
+    console.warn('[Lumina] 未知的 thumbRewrite 模式:', mode);
+  } catch (err) {
+    console.warn('[Lumina] thumbRewrite 失败，回退原 thumb:', err.message);
+  }
+  return thumb;
 }
 
 /**
@@ -114,7 +159,12 @@ async function loadImages() {
     // 直连模式：apiBase/token 任一为空 → 直接使用兜底演示图
     if (!CONFIG.apiBase || !CONFIG.token) {
       console.info('[Lumina] 未配置图床接口，使用兜底演示图。请在 js/config.js 中填写。');
-      return CONFIG.fallbackImages.map(url => ({ url, name: '', thumb: url }));
+      return CONFIG.fallbackImages.map(url => ({
+        url,
+        name: '',
+        thumb: url,
+        srcset: `${url} 1x, ${url} 2x`,
+      }));
     }
     url = CONFIG.apiBase + CONFIG.listPath +
           '?order=newest&per_page=' + CONFIG.perPage;
@@ -151,7 +201,12 @@ async function loadImages() {
   } catch (err) {
     // —— 情况三：请求失败，回退兜底图（页面不白屏） ——
     console.warn('[Lumina] 图床加载失败：', err.message, '→ 已回退兜底图。');
-    return CONFIG.fallbackImages.map(url => ({ url, name: '', thumb: url }));
+    return CONFIG.fallbackImages.map(url => ({
+      url,
+      name: '',
+      thumb: url,
+      srcset: `${url} 1x, ${url} 2x`,
+    }));
   }
 }
 
@@ -210,14 +265,35 @@ function renderWall(images) {
         const globalIndex = r + i * rowCount; // 反推该卡片在 gallery 中的下标
         return (
           '<figure class="card" data-index="' + globalIndex + '">' +
-          '  <img src="' + escapeHtml(img.thumb) + '" loading="lazy" alt="' + escapeHtml(img.name || '图片') + '">' +
+          `<img src="${escapeHtml(img.thumb)}"` +
+          ` srcset="${escapeHtml(img.srcset)}"` +
+          ' loading="lazy" decoding="async"' +
+          ` alt="${escapeHtml(img.name || '图片')}">` +
           '</figure>'
         );
       })
       .join('');
 
-    /* ---- 4. 关键：内容复制两份，实现无缝循环 ---- */
-    track.innerHTML = cardsHtml + cardsHtml;
+    /* ---- 4. 关键：内容复制两份，实现无缝循环 ----
+     * 副本加 aria-hidden + inert + tabindex=-1：
+     *   - aria-hidden：屏幕阅读器不重复朗读
+     *   - inert：副本不响应任何点击/焦点事件（避免点击副本时灯箱索引错乱）
+     *   - tabindex=-1：键盘 Tab 也不会聚焦副本
+     */
+    const copyTail = cardsHtml.replaceAll(
+      '<figure class="card"',
+      '<figure class="card" aria-hidden="true" tabindex="-1" inert'
+    );
+    track.innerHTML = cardsHtml + copyTail;
+
+    // 焦点注入:每张 <img> 渲染后,把对应 URL 的 (x, y) 注入为 CSS 变量;
+    // 无数据时 focal-runtime.js 不做任何操作,沿用 CSS 默认 (50% / 25%)。
+    // 必须在 track.innerHTML 赋值后执行,此时 querySelectorAll 才能找到 img。
+    if (window.FocalRuntime && typeof window.FocalRuntime.applyTo === 'function') {
+      track.querySelectorAll('img').forEach((el) => {
+        window.FocalRuntime.applyTo(el, el.getAttribute('src'));
+      });
+    }
 
     // 设置每张卡片的宽度（CONFIG.cardWidth，供 CSS 中 flex-basis 使用）
     track.style.setProperty('--card-w', CONFIG.cardWidth + 'px');
@@ -294,7 +370,10 @@ function show(index) {
   current = ((index % total) + total) % total;
 
   const img = gallery[current];
+  lbImg.classList.add('lb-loading');   // 立即设为不可见，等 onload 后移除
+  lbImg.onload = lbImg.onerror = () => lbImg.classList.remove('lb-loading');
   lbImg.src = img.url;        // 换大图地址
+  if (lbImg.complete) lbImg.classList.remove('lb-loading');
   lbImg.alt = img.name || '图片 ' + (current + 1); // 无障碍描述
   // 底部说明：序号 / 总数 + 图片名
   lbCaption.textContent = (current + 1) + ' / ' + total + (img.name ? ' · ' + img.name : '');

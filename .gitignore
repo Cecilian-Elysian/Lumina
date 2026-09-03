@@ -18,3 +18,14 @@ node_modules/
 
 # wrangler 本地开发产物（缓存/状态数据库/打包临时文件）
 .wrangler/
+
+# Cloudflare Pages 构建产物
+/dist/
+
+# Manager 控制台仅保存在本机，不上传 GitHub
+/manager/
+
+# Tools 运行产物（Tools 源码和依赖锁文件正常入库）
+tools/node_modules/
+tools/weights/
+tools/.tmp/

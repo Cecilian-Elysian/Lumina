@@ -1,0 +1,471 @@
+#!/usr/bin/env node
+/* ============================================================
+ * Lumina 焦点管理器 — 启动器 + HTTP 服务器
+ * ------------------------------------------------------------
+ * 双击 tools/start.bat 即调用本文件,职责:
+ *   1. 检查 Node.js 版本(≥18)
+ *   2. 首次运行自动 npm install
+ *   3. 分配端口(默认 8002,冲突顺延)
+ *   4. 启动 HTTP 服务器
+ *   5. 自动打开浏览器到 /manager/
+ *   6. Ctrl+C 优雅关闭
+ *
+ * 路由:
+ *   GET  /                              → 302 → /manager/
+ *   GET  /manager/*                     → 本地 manager/ 内静态文件
+ *   GET  /api/viewer-config             → 读 ../js/config.js
+ *   GET  /api/focal-points              → 读 ../js/focal-points.js
+ *   POST /api/focal-points              → 写 ../js/focal-points.js
+ *   GET  /api/proxy-images              → 尝试拉取 viewer 上游图床
+ *   POST /api/sync-deploy               → 仅提交并推送 js/focal-points.js
+ *   POST /api/run-ai                    → spawn AI 工具,SSE 流式输出
+ *
+ * 用法:
+ *   node server/serve.mjs               (默认:检查+装依赖+开浏览器)
+ *   node server/serve.mjs --no-launch   (不自动开浏览器)
+ *   node server/serve.mjs --port=9000   (自定义端口)
+ * ============================================================ */
+import http from 'node:http';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { spawn } from 'node:child_process';
+import https from 'node:https';
+import net from 'node:net';
+import { platform } from 'node:os';
+
+import {
+  getViewerDir,
+  readViewerConfig,
+  readFocalPoints,
+  writeFocalPoints,
+  readLocalSecret,
+  getByPath,
+} from './lib/config-reader.mjs';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const TOOLS = path.resolve(__dirname, '..');         // tools/
+const VIEWER = getViewerDir();
+const PROJECT_ROOT = path.resolve(TOOLS, '..');     // Lumina/
+const MANAGER = path.resolve(PROJECT_ROOT, 'manager'); // 本地忽略的 manager/
+
+// ── CLI 参数 ─────────────────────────────────────
+const cliArgs = Object.fromEntries(
+  process.argv.slice(2).map((a) => {
+    const m = a.match(/^--([^=]+)(?:=(.*))?$/);
+    return m ? [m[1], m[2] ?? true] : [];
+  })
+);
+const PREFERRED_PORT = Number(cliArgs.port) || 8002;
+const NO_LAUNCH = !!cliArgs['no-launch'];
+const NO_INSTALL = !!cliArgs['no-install'];
+const MAX_PORT_TRIES = 5;
+
+// ── 启动器辅助 ───────────────────────────────────
+function log(emoji, msg) {
+  console.log(`${emoji} [serve] ${msg}`);
+}
+
+function checkNode() {
+  const major = Number(process.versions.node.split('.')[0]);
+  if (major < 18) {
+    log('❌', `Node.js 版本过低(${process.versions.node}),需要 ≥18。请升级 https://nodejs.org`);
+    process.exit(1);
+  }
+  log('✅', `Node.js ${process.versions.node}`);
+}
+
+async function ensureDeps() {
+  if (NO_INSTALL) {
+    log('⏭️', '跳过依赖检查(--no-install)');
+    return;
+  }
+  // 检查 @vladmandic/face-api 是否已就位
+  try {
+    await fs.access(path.join(TOOLS, 'node_modules', '@vladmandic', 'face-api', 'package.json'));
+    log('✅', '依赖已就绪');
+  } catch {
+    log('📦', '首次运行,正在安装依赖(约 30~60 秒)...');
+    const install = spawn('npm', ['install'], {
+      cwd: TOOLS,
+      stdio: 'inherit',
+      shell: true,
+    });
+    await new Promise((resolve, reject) => {
+      install.on('exit', (code) => {
+        if (code !== 0) { log('❌', '依赖安装失败'); reject(new Error('install failed')); }
+        else { log('✅', '依赖安装完成'); resolve(); }
+      });
+    });
+  }
+}
+
+async function ensureManager() {
+  try {
+    await fs.access(path.join(MANAGER, 'index.html'));
+  } catch {
+    throw new Error('未找到本地 manager/index.html。该目录被 Git 忽略，请从本机备份恢复。');
+  }
+}
+
+function tryListen(port) {
+  return new Promise((resolve) => {
+    const srv = net.createServer();
+    srv.once('error', () => resolve(false));
+    srv.once('listening', () => srv.close(() => resolve(true)));
+    srv.listen(port, '127.0.0.1');
+  });
+}
+
+async function findFreePort() {
+  for (let i = 0; i < MAX_PORT_TRIES; i++) {
+    const port = PREFERRED_PORT + i;
+    if (await tryListen(port)) return port;
+    log('⚠️', `端口 ${port} 被占用,尝试 ${port + 1}`);
+  }
+  log('❌', `连续 ${MAX_PORT_TRIES} 个端口都被占用,请手动指定 --port`);
+  process.exit(1);
+}
+
+function openBrowser(url) {
+  const cmd = platform() === 'win32'  ? `start "" "${url}"` :
+              platform() === 'darwin' ? `open "${url}"` :
+                                        `xdg-open "${url}"`;
+  spawn(cmd, { shell: true, detached: true, stdio: 'ignore' }).unref();
+}
+
+// ── MIME 表 ───────────────────────────────────────
+const MIME = {
+  '.html': 'text/html; charset=utf-8',
+  '.js':   'text/javascript; charset=utf-8',
+  '.mjs':  'text/javascript; charset=utf-8',
+  '.css':  'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.svg':  'image/svg+xml',
+  '.png':  'image/png',
+  '.jpg':  'image/jpeg',
+  '.ico':  'image/x-icon',
+};
+
+// ── 静态文件服务(限于本地 manager/ 目录) ─────────
+async function serveStatic(req, res, relPath) {
+  // relPath 形如 "/manager/index.html"；统一在 manager/ 下查找。
+  let rel = relPath.replace(/^\/+/, '');
+  if (rel.startsWith('manager/')) rel = rel.slice('manager/'.length);
+  if (rel === '' || rel === '/') rel = 'index.html';
+
+  const safe = path.normalize(rel).replace(/^(\.\.[\/\\])+/, '');
+  const full = path.join(MANAGER, safe);
+  if (!full.startsWith(MANAGER)) {
+    res.writeHead(403); res.end('Forbidden'); return;
+  }
+  try {
+    const data = await fs.readFile(full);
+    const ext = path.extname(full).toLowerCase();
+    res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
+    res.end(data);
+  } catch (e) {
+    if (e.code === 'ENOENT') { res.writeHead(404); res.end('Not Found'); }
+    else { res.writeHead(500); res.end(e.message); }
+  }
+}
+
+// ── 代理 viewer 上游图床 ─────────────────────────
+async function fetchUpstreamImages(perPage) {
+  try {
+    const CONFIG = await readViewerConfig();
+    if (!CONFIG.apiBase || !CONFIG.listPath) return null;
+
+    const token = CONFIG.token || await readLocalSecret('QUBU_TOKEN');
+    if (CONFIG.authType !== 'none' && !token) return null;
+
+    const url = CONFIG.apiBase + CONFIG.listPath +
+                '?order=newest&per_page=' + (perPage || CONFIG.perPage || 60);
+    const headers = { Accept: 'application/json' };
+    if (token && CONFIG.authType === 'bearer') {
+      headers.Authorization = 'Bearer ' + token;
+    } else if (token && CONFIG.authType === 'header') {
+      headers[CONFIG.authKey] = CONFIG.tokenPrefix + token;
+    }
+
+    return await new Promise((resolve, reject) => {
+      const req = https.get(url, { headers, timeout: 10000 }, (res) => {
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          reject(new Error('HTTP ' + res.statusCode));
+          res.resume(); return;
+        }
+        const chunks = [];
+        res.on('data', (c) => chunks.push(c));
+        res.on('end', () => resolve(JSON.parse(Buffer.concat(chunks).toString('utf8'))));
+        res.on('error', reject);
+      });
+      req.on('error', reject);
+      req.on('timeout', () => req.destroy(new Error('timeout')));
+    });
+  } catch (e) {
+    return null;
+  }
+}
+
+function readBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on('data', (c) => chunks.push(c));
+    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    req.on('error', reject);
+  });
+}
+
+function runCommand(command, args, options = {}) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      cwd: PROJECT_ROOT,
+      windowsHide: true,
+      ...options,
+    });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (chunk) => { stdout += chunk; });
+    child.stderr.on('data', (chunk) => { stderr += chunk; });
+    child.on('error', reject);
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve({ stdout: stdout.trim(), stderr: stderr.trim() });
+      } else {
+        const detail = (stderr || stdout).trim() || `命令退出码 ${code}`;
+        reject(new Error(detail));
+      }
+    });
+  });
+}
+
+async function syncFocalPoints() {
+  const focalPath = 'js/focal-points.js';
+  const branch = (await runCommand('git', ['branch', '--show-current'])).stdout;
+  if (branch !== 'main') {
+    throw new Error(`当前分支为 ${branch || '(detached HEAD)'}，只能从 main 同步`);
+  }
+
+  const remote = (await runCommand('git', ['remote', 'get-url', 'origin'])).stdout;
+  if (!remote) throw new Error('未配置 Git 远程 origin');
+
+  const status = await runCommand('git', ['status', '--porcelain', '--', focalPath]);
+  if (!status.stdout) {
+    return { changed: false, message: '焦点文件没有新改动，无需同步' };
+  }
+
+  await runCommand('git', ['add', '--', focalPath]);
+  const staged = await runCommand('git', ['diff', '--cached', '--quiet', '--', focalPath])
+    .then(() => false)
+    .catch(() => true);
+  if (!staged) {
+    return { changed: false, message: '焦点文件没有可提交的改动' };
+  }
+
+  try {
+    await runCommand('git', ['commit', '-m', 'chore: update image focal points', '--', focalPath]);
+  } catch (err) {
+    throw new Error('提交失败：' + err.message);
+  }
+
+  try {
+    await runCommand('git', ['push', 'origin', 'main']);
+  } catch (err) {
+    throw new Error('已在本地提交焦点文件，但推送失败：' + err.message);
+  }
+
+  return {
+    changed: true,
+    message: '已同步到 GitHub，Cloudflare Pages 将自动部署',
+  };
+}
+
+// ── 路由处理 ─────────────────────────────────────
+async function handle(req, res, url) {
+  const pathname = url.pathname;
+
+  // 根路径 → 302 到 Manager
+  if (pathname === '/' || pathname === '') {
+    res.writeHead(302, { Location: '/manager/' });
+    res.end();
+    return;
+  }
+
+  // ── API ──
+  if (pathname === '/api/viewer-config' && req.method === 'GET') {
+    try {
+      const cfg = await readViewerConfig();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        ok: true,
+        data: {
+          mode: cfg.mode,
+          apiBase: cfg.apiBase,
+          rows: cfg.rows,
+          cardWidth: cfg.cardWidth,
+          perPage: cfg.perPage,
+          imgField: cfg.imgField,
+          imgUrlField: cfg.imgUrlField,
+          imgThumbField: cfg.imgThumbField,
+          imgNameField: cfg.imgNameField,
+          fallbackImages: cfg.fallbackImages || [],
+        },
+      }));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, error: e.message }));
+    }
+    return;
+  }
+
+  if (pathname === '/api/focal-points' && req.method === 'GET') {
+    try {
+      const data = await readFocalPoints();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, data }));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, error: e.message }));
+    }
+    return;
+  }
+
+  if (pathname === '/api/focal-points' && req.method === 'POST') {
+    const body = await readBody(req);
+    try {
+      const json = JSON.parse(body);
+      if (typeof json !== 'object' || json === null || Array.isArray(json)) {
+        throw new Error('body 必须是对象');
+      }
+      const r = await writeFocalPoints(json);
+      log('💾', `写入 focal-points.js(${r.count} 项)${r.ok ? '' : ' — ' + r.error}`);
+      res.writeHead(r.ok ? 200 : 500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(r));
+    } catch (e) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, error: 'JSON 解析失败:' + e.message }));
+    }
+    return;
+  }
+
+  if (pathname === '/api/proxy-images' && req.method === 'GET') {
+    const perPage = Number(url.searchParams.get('per_page')) || 60;
+    const data = await fetchUpstreamImages(perPage);
+    if (!data) {
+      res.writeHead(502, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, error: '上游不可达,使用兜底图' }));
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ok: true, data }));
+    return;
+  }
+
+  if (pathname === '/api/sync-deploy' && req.method === 'POST') {
+    try {
+      const result = await syncFocalPoints();
+      log('↥', result.message);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, ...result }));
+    } catch (e) {
+      log('❌', '同步失败: ' + e.message);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, error: e.message }));
+    }
+    return;
+  }
+
+  if (pathname === '/api/run-ai' && req.method === 'POST') {
+    const body = await readBody(req);
+    let strategy = 'max';
+    try {
+      const j = JSON.parse(body);
+      if (j.strategy === 'center' || j.strategy === 'max') strategy = j.strategy;
+    } catch {}
+
+    log('🧠', `启动 AI 批量分析(strategy=${strategy})...`);
+
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    });
+
+    const aiScript = path.resolve(TOOLS, 'ai', 'build-focal-points.mjs');
+    const child = spawn(process.execPath, [aiScript, `--strategy=${strategy}`], {
+      cwd: TOOLS,
+      env: process.env,
+    });
+
+    child.stdout.on('data', (chunk) => {
+      res.write(`event: log\ndata: ${JSON.stringify(chunk.toString())}\n\n`);
+    });
+    child.stderr.on('data', (chunk) => {
+      res.write(`event: log\ndata: ${JSON.stringify('[stderr] ' + chunk.toString())}\n\n`);
+    });
+    child.on('exit', (code) => {
+      res.write(`event: done\ndata: ${JSON.stringify({ code, ok: code === 0 })}\n\n`);
+      res.end();
+    });
+    res.on('close', () => {
+      if (!res.writableEnded && !child.killed) child.kill('SIGTERM');
+    });
+    return;
+  }
+
+  // ── 静态文件 ──
+  await serveStatic(req, res, pathname);
+}
+
+// ── 创建服务器 ───────────────────────────────────
+const server = http.createServer(async (req, res) => {
+  const url = new URL(req.url, `http://127.0.0.1:${PREFERRED_PORT}`);
+  try {
+    await handle(req, res, url);
+  } catch (e) {
+    console.error('❌', e);
+    res.writeHead(500); res.end(e.message);
+  }
+});
+
+// ── 启动入口 ─────────────────────────────────────
+async function bootstrap() {
+  log('✨', 'Lumina 焦点管理器启动中...');
+  checkNode();
+  await ensureManager();
+  await ensureDeps();
+
+  const port = await findFreePort();
+  const url = `http://127.0.0.1:${port}/manager/`;
+
+  // 服务器端口(用实际分配到的)
+  const actualServer = server.listen(port, '127.0.0.1', () => {
+    log('✨', `Lumina 焦点管理器已启动`);
+    log('🌐', `编辑器: ${url}`);
+    log('📂', `tools/    = ${TOOLS}`);
+    log('📂', `manager/  = ${MANAGER}`);
+    log('📂', `viewer/   = ${VIEWER}`);
+    log('⏹ ', `按 Ctrl+C 停止服务`);
+  });
+
+  if (!NO_LAUNCH) {
+    setTimeout(() => {
+      log('🌐', `打开浏览器: ${url}`);
+      openBrowser(url);
+    }, 1500);
+  }
+
+  // Ctrl+C 优雅关闭
+  const shutdown = () => {
+    log('\n🛑', '正在关闭服务...');
+    actualServer.close(() => process.exit(0));
+    setTimeout(() => process.exit(0), 500);
+  };
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
+}
+
+bootstrap().catch((e) => {
+  console.error('❌ 启动失败:', e);
+  process.exit(1);
+});

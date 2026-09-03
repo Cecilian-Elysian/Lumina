@@ -141,4 +141,24 @@ const CONFIG = {
     'https://bu.dusays.com/2026/08/04/6a71ed5d3acdd.jpg',
     'https://bu.dusays.com/2026/08/04/6a71e67ca957f.jpg',
   ],
+
+  /* ------------------------------------------------------------
+   * 五、缩略图增强策略(让流动卡片更清晰)
+   * ------------------------------------------------------------
+   * 工作原理:
+   *   thumbRewrite  → 改写 thumbnail_url,让图床返回更大尺寸
+   *   thumbWidth    → 改写时使用的目标宽度
+   *   srcset        → (main.js 自动生成)让 Retina 屏直接用原图 url
+   *
+   * thumbRewrite 可选值:
+   *   null / ''                              → 不改写,使用图床返回的 thumbnail_url
+   *   'query:w'                              → 追加 ?w=thumbWidth(7bu.top 常见支持)
+   *   'query:size'                           → 追加 ?size=thumbWidth(部分 Chevereto)
+   *   'replace:/thumbnails/::/images/'       → 路径替换(实测有效再填)
+   *
+   * 实测 7bu.top 不支持上述改写,默认 null,靠 srcset 让 Retina 屏选原图。
+   * ---------------------------------------------------------- */
+  thumbWidth: 600,
+  thumbRewrite: null,
+  lazyRootMargin: '200px',
 };

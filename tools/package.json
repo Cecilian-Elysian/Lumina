@@ -1,0 +1,27 @@
+{
+  "name": "lumina-tools",
+  "version": "1.0.0",
+  "description": "Lumina 焦点管理器 + AI 批量分析工具（本地运行，不部署）",
+  "private": true,
+  "type": "module",
+  "main": "server/serve.mjs",
+  "scripts": {
+    "build:pages": "node build-pages.mjs",
+    "start": "node server/serve.mjs",
+    "editor": "node server/serve.mjs",
+    "ai": "node ai/build-focal-points.mjs",
+    "ai:max": "node ai/build-focal-points.mjs --strategy=max",
+    "ai:center": "node ai/build-focal-points.mjs --strategy=center",
+    "download": "node ai/build-focal-points.mjs --download-only",
+    "list": "node ai/analyze-images.mjs"
+  },
+  "dependencies": {
+    "@vladmandic/face-api": "^4.0.6",
+    "canvas": "^2.11.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "author": "",
+  "license": "MIT"
+}
