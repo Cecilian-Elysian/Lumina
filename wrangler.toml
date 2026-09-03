@@ -3,4 +3,7 @@ compatibility_date = "2024-09-23"
 
 # tools/build-pages.mjs 只把 Viewer 白名单资源复制到 dist/。
 # manager/ 与 tools/ 源码都不会成为 Cloudflare 静态资源。
+[build]
+command = "node tools/build-pages.mjs"
+
 pages_build_output_dir = "./dist"
