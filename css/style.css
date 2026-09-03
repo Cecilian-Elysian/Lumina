@@ -31,6 +31,14 @@
   --card-radius: 14px;                   /* 卡片圆角 */
   --row-gap:    16px;                    /* 卡片之间的横向间距 */
   --row-margin: 10px;                    /* 行与行的纵向间距 */
+
+  /* —— 已有变量保留 —— */
+  --border: #e3e6ec;          /* 当前 CSS 已硬编码 rgba，补充变量方便复用 */
+
+  /* —— 新增品牌色 —— */
+  --brand-1: #ff4d6d;          /* 主玫红 */
+  --brand-2: #ff9f40;          /* 橙色副色 */
+  --brand-deep: #c9184a;       /* 深玫红（用于 hover 时的描边/下划线） */
 }
 
 /* ============================================================
@@ -61,34 +69,98 @@ body {
  * 3. 标题区 / 页脚
  * ============================================================ */
 
-.site-header {
-  text-align: center;
-  padding: 48px 20px 32px; /* 上左右留白充足，贴合极简风格 */
+/* 导航栏 */
+.navbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+
+  display: flex;
+  align-items: center; /* 垂直 */
+  justify-content:space-between; /* 水平 */
+
+  padding: 16px 28px; /* 元素内容与边框之间的空间 */
+  background: linear-gradient(135deg,
+              rgba(255, 77, 109, 0.88) 0%,
+              rgba(255, 159, 64, 0.88) 100%);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 6px 20px rgba(255, 77, 109, 0.18);
 }
 
-.site-title {
-  font-size: 2.4rem;
+/* 品牌 */
+.navbar-title {
+  color: #fff;
+  font-size: 1.4rem;
+  font-weight: 800;
+  font-style: oblique 12deg; /* 人工斜体 */
+  letter-spacing: 0.15em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* 导航 */
+.navbar-nav {
+  display: flex;
+  gap: 24px;
+}
+
+/* 导航链接的基础样式 */
+.navbar-link {
+  position: relative; /* 为下划线提供定位锚点 */
+  color: rgba(255, 255, 255, 0.88);
+  text-decoration: none; /* 去掉下划线 */
+  font-size: 0.95rem; /* 字号略小于品牌标题 */
+  font-weight: 500; /* 中等粗细 */
+  letter-spacing: 0.05em; /* 字间距 0.05em，略显优雅 */
+  transition: color 0.2s ease; /* 颜色变化时 0.2 秒平滑过渡 */
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2); /* 阴影 */
+}
+
+/* 悬停下划线 */
+.navbar-link::after {
+  content: "";              /* 必须有内容才能显示 */
+  position: absolute;       /* 相对于 .navbar-link 定位 */
+  left: 0; right: 0;        /* 左右拉满，等于链接宽度 */
+  bottom: -7px;             /* 距离文字底部 7px */
+  height: 2px;              /* 下划线 2px 高 */
+  background: var(--text-main); /* 深灰色（默认主题色） */
+  transform: scaleX(0);     /* 初始宽度缩为 0，看不见 */
+  transition: transform 0.2s ease; /* 展开动画 */
+}
+
+/* 鼠标悬停和当前页 */
+.navbar-link:hover,
+.navbar-link.active {
+  color: var(--text-main);
   font-weight: 700;
-  letter-spacing: 0.12em;  /* 字间距稍大更有仪式感 */
 }
 
-.site-subtitle {
-  margin-top: 10px;
-  color: var(--text-sub);
-  font-size: 0.95rem;
-  letter-spacing: 0.35em;  /* 大字距的精致小字副标题 */
+/* 下划线展开 */
+.navbar-link:hover::after,
+.navbar-link.active::after {
+  transform: scaleX(1);
 }
 
+/* 页脚 */
 .site-footer {
-  text-align: center;
-  padding: 28px 20px 36px;
-  color: var(--text-sub);
-  font-size: 0.8rem;
+  text-align: center; /* 内容居中 */
+  padding: 28px 20px 36px;  /* 上28px 左右20px 下36px 内边距 */
+  font-size: 0.85rem;          /* 正常字号 */
+  font-weight: 700;         /* 粗体 */
+  color: var(--text-sub);  /* 浅灰色文字 */
 }
 
-/* 页脚链接：低调整体中提供一点可识别性 */
-.site-footer a { color: var(--text-sub); text-decoration: none; }
-.site-footer a:hover { color: var(--text-main); text-decoration: underline; }
+.site-footer a {
+  color: var(--text-sub);  /* 链接默认浅灰 */
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.site-footer a:hover {
+  color: var(--text-main); /* 悬停变深色 */
+  text-decoration: underline;
+}
 
 /* ============================================================
  * 4. 图片墙：行 + 轨道 + 无缝滚动
@@ -269,7 +341,7 @@ body {
   :root {
     --card-height: 190px;
   }
-  .site-title { font-size: 1.9rem; }
+  .navbar-title { font-size: 1.1rem; }
 }
 
 /* 手机：只保留前两行（:nth-child(n+3) = 第3行起隐藏），
@@ -282,9 +354,10 @@ body {
     --row-margin: 6px;
   }
   .row:nth-child(n + 3) { display: none; } /* JS 已按行分图，隐藏即可 */
-  .site-header { padding: 32px 16px 20px; }
-  .site-title  { font-size: 1.6rem; }
-  .site-subtitle { letter-spacing: 0.2em; font-size: 0.8rem; }
+  .navbar { padding: 13px 16px; }
+  .navbar-title { font-size: 1rem; }
+  .navbar-nav { gap: 16px; }
+  .navbar-link { font-size: 0.82rem; }
 
   /* 灯箱按钮在窄屏略缩 */
   .lb-btn { width: 40px; height: 40px; }

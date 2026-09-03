@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 const toolsDir = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(toolsDir, '..');
 const outputDir = path.join(projectRoot, 'dist');
-const publicEntries = ['index.html', '404.html', 'css', 'js'];
+const publicEntries = ['index.html', 'gallery.html', '404.html', 'css', 'js'];
 
 await fs.rm(outputDir, { recursive: true, force: true });
 await fs.mkdir(outputDir, { recursive: true });

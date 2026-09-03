@@ -161,4 +161,82 @@ const CONFIG = {
   thumbWidth: 600,
   thumbRewrite: null,
   lazyRootMargin: '200px',
+
+  /* ------------------------------------------------------------
+   * 六、相册列表（图集页使用）
+   * ------------------------------------------------------------
+   * 图集页 (gallery.html) 读取此数组作为数据源。
+   * 结构：每项 = 一个相册
+   *   title       相册标题（必填，搜索/卡片显示）
+   *   date        日期标签（卡片右下角胶囊）
+   *   cover       封面图 URL（卡片主图）
+   *   description 描述（搜索关键字，目前未做搜索，预留）
+   *   images      相册内图片数组（点击卡片打开灯箱用）
+   * ---------------------------------------------------------- */
+  galleries: [
+    {
+      title: '德克萨斯',
+      date: '2026-08-04',
+      cover: 'https://bu.dusays.com/2026/08/07/6a7543c1b449f.jpg',
+      description: '示例相册 · 德克萨斯',
+      images: [
+        'https://bu.dusays.com/2026/08/07/6a7543c1b449f.jpg',
+        'https://bu.dusays.com/2026/08/07/6a7543c13d1ba.jpg',
+        'https://bu.dusays.com/2026/08/07/6a7543c080d97.jpg',
+      ],
+    },
+    {
+      title: '星海拾光',
+      date: '2026-07-12',
+      cover: 'https://bu.dusays.com/2026/08/05/6a72df8a995d2.jpg',
+      description: '示例相册 · 星海拾光',
+      images: [
+        'https://bu.dusays.com/2026/08/05/6a72df8a995d2.jpg',
+        'https://bu.dusays.com/2026/08/05/6a72e1e316838.jpg',
+      ],
+    },
+    {
+      title: '夏日剪影',
+      date: '2026-07-21',
+      cover: 'https://bu.dusays.com/2026/08/04/6a71e68e7c675.jpg',
+      description: '示例相册 · 夏日剪影',
+      images: [
+        'https://bu.dusays.com/2026/08/04/6a71e68e7c675.jpg',
+        'https://bu.dusays.com/2026/08/04/6a71cd89ebd59.jpg',
+        'https://bu.dusays.com/2026/08/04/6a71ed5d3acdd.jpg',
+        'https://bu.dusays.com/2026/08/04/6a71e67ca957f.jpg',
+      ],
+    },
+    {
+      title: '夜行列车',
+      date: '2026-06-30',
+      cover: 'https://bu.dusays.com/2026/08/07/6a7543be8af5f.jpg',
+      description: '示例相册 · 夜行列车',
+      images: [
+        'https://bu.dusays.com/2026/08/07/6a7543be8af5f.jpg',
+        'https://bu.dusays.com/2026/08/07/6a7543b4e47a6.jpg',
+      ],
+    },
+    {
+      title: '云端日记',
+      date: '2026-06-15',
+      cover: 'https://bu.dusays.com/2026/08/07/6a7543b142698.jpg',
+      description: '示例相册 · 云端日记',
+      images: [
+        'https://bu.dusays.com/2026/08/07/6a7543b142698.jpg',
+        'https://bu.dusays.com/2026/08/07/6a7543aec18c9.jpg',
+        'https://bu.dusays.com/2026/08/07/6a7543aec93d3.jpg',
+      ],
+    },
+    {
+      title: '灯下漫笔',
+      date: '2026-05-28',
+      cover: 'https://bu.dusays.com/2026/08/26/6a8e4886824f2.png',
+      description: '示例相册 · 灯下漫笔',
+      images: [
+        'https://bu.dusays.com/2026/08/26/6a8e4886824f2.png',
+        'https://bu.dusays.com/2026/08/25/6a8da73da2991.jpg',
+      ],
+    },
+  ],
 };

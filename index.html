@@ -34,15 +34,21 @@
 </head>
 <body>
 
-  <!-- ========== 标题区 ========== -->
-  <header class="site-header">
-    <!-- 主标题：serif 字体提升质感（样式在 css 中控制） -->
-    <h1 class="site-title">流动图片墙</h1>
-    <!-- 副标题：简要说明站点功能 -->
-    <p class="site-subtitle">多行叠层 · 水平流动 · 点击预览</p>
+
+  <!-- ========== 导航栏 ========== -->
+  <header class="navbar">
+    <div>
+      <h1 class="navbar-title">Lumina-Web</h1>
+    </div>
+    <nav class="navbar-nav" aria-label="主导航">
+      <a href="index.html"   class="navbar-link active">主页</a>
+      <a href="gallery.html" class="navbar-link">图集</a>
+      <a href="#settings"    class="navbar-link">设置</a>
+    </nav>
   </header>
 
-  <!--
+
+<!--
     ========== 图片墙主容器 ==========
     内部由 JS 按 CONFIG.rows 生成若干 .row（每一行一个滚动轨道），
     HTML 中保持为空即可。
@@ -52,13 +58,17 @@
     <p id="loading" class="loading">正在加载图片…</p>
   </main>
 
-  <!-- ========== 页脚 ========== -->
+
+   <!-- ========== 页脚 ========== -->
   <footer class="site-footer">
-    <p>图片来自图床 · <a href="https://github.com/" target="_blank" rel="noopener">GitHub</a> · Cloudflare Pages 托管</p>
+    <!-- _blank 让链接在新标签页打开 -->
+    <!-- noopener 防止跳转到钓鱼/恶意站点 -->
+    <p><a href="https://github.com/Cecilian-Elysian/Lumina" target="_blank" rel="noopener">GitHub</a></p>
   </footer>
 
+
   <!--
-    ========== 灯箱（大图预览） ==========
+  ========== 灯箱（大图预览） ==========
     role="dialog" + aria-modal  → 告诉屏幕阅读器这是模态对话框
     .hidden 类控制显隐（样式在 css 中定义）
     内部元素：
