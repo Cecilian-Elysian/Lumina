@@ -153,7 +153,8 @@ async function loadImages() {
     // 代理模式：请求同源 Pages Function（functions/api/images.js）
     // 本地需用 `npx wrangler pages dev .` 运行才有该接口；
     // 普通 http.server 下 /api/images 不存在 → 自动回退兜底图（预期行为）
-    url = '/api/images?per_page=' + CONFIG.perPage;
+    // &_t= 时间戳做缓存死角：每次刷新生成新 URL，绕开浏览器/CDN 对列表的缓存
+    url = '/api/images?per_page=' + CONFIG.perPage + '&_t=' + Date.now();
     headers = { Accept: 'application/json' }; // 代理注入 token，前端不带
   } else {
     // 直连模式：apiBase/token 任一为空 → 直接使用兜底演示图
@@ -275,14 +276,15 @@ function renderWall(images) {
       .join('');
 
     /* ---- 4. 关键：内容复制两份，实现无缝循环 ----
-     * 副本加 aria-hidden + inert + tabindex=-1：
+     * 原卡与副本平铺进轨道，每张卡片统一右侧间距
+     * （接缝处间距一致，且 -50% 平移恰好等于一整份宽度）。
+     * 副本保留 aria-hidden + tabindex=-1：
      *   - aria-hidden：屏幕阅读器不重复朗读
-     *   - inert：副本不响应任何点击/焦点事件（避免点击副本时灯箱索引错乱）
      *   - tabindex=-1：键盘 Tab 也不会聚焦副本
      */
     const copyTail = cardsHtml.replaceAll(
       '<figure class="card"',
-      '<figure class="card" aria-hidden="true" tabindex="-1" inert'
+      '<figure class="card" aria-hidden="true" tabindex="-1"'
     );
     track.innerHTML = cardsHtml + copyTail;
 

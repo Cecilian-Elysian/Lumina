@@ -11,6 +11,7 @@
  *   7. 灯箱（遮罩/大图/箭头/关闭/说明文字）
  *   8. 响应式（平板 / 手机）
  *   9. 无障碍：prefers-reduced-motion 适配
+ *  10. 404 页样式
  * ============================================================ */
 
 /* ============================================================
@@ -19,12 +20,12 @@
  * 想换配色/尺寸只需修改这里，下方所有规则自动引用。
  * ============================================================ */
 :root {
-  /* —— 浅色清爽极简主题 —— */
-  --bg-start:   #f7f7fa;                 /* 页面背景渐变·起点（近白） */
-  --bg-end:     #eceef2;                 /* 页面背景渐变·终点（浅灰） */
-  --text-main:  #2b2f36;                 /* 主文字色（深灰，非纯黑更柔和） */
-  --text-sub:   #8a9099;                 /* 次要文字色（副标题/页脚） */
-  --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);  /* 卡片柔和投影 */
+  /* —— 深色暗夜主题 —— */
+  --bg-start:   #14161a;                 /* 页面背景渐变·起点（近黑） */
+  --bg-end:     #1a1d22;                 /* 页面背景渐变·终点（深灰） */
+  --text-main:  #e6e8eb;                 /* 主文字色（浅灰，深底更柔和） */
+  --text-sub:   #9aa1ab;                 /* 次要文字色（副标题/页脚） */
+  --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);  /* 卡片深色投影 */
 
   /* —— 尺寸 —— */
   --card-height: 230px;                  /* 卡片图片统一高度 */
@@ -33,7 +34,7 @@
   --row-margin: 10px;                    /* 行与行的纵向间距 */
 
   /* —— 已有变量保留 —— */
-  --border: #e3e6ec;          /* 当前 CSS 已硬编码 rgba，补充变量方便复用 */
+  --border: #2c3038;          /* 深色模式下的分界线 */
 
   /* —— 新增品牌色 —— */
   --brand-1: #ff4d6d;          /* 主玫红 */
@@ -75,18 +76,25 @@ body {
   top: 0;
   z-index: 50;
 
-  display: flex;
-  align-items: center; /* 垂直 */
-  justify-content:space-between; /* 水平 */
+  display: flex;/* 弹性盒子 */
+  
+  align-items: center; /* 垂直居中 */
+  justify-content:space-between; /* 水平两端 */
 
-  padding: 16px 28px; /* 元素内容与边框之间的空间 */
-  background: linear-gradient(135deg,
-              rgba(255, 77, 109, 0.88) 0%,
-              rgba(255, 159, 64, 0.88) 100%);
+  width:100%;
+  height: 60px;
+
+  padding: 0px 40px; /* 元素内容与边框之间的空间 */
+
+  background: rgba(24, 26, 31, 0.8);
+
   backdrop-filter: blur(16px) saturate(160%);
+
   -webkit-backdrop-filter: blur(16px) saturate(160%);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.25);
-  box-shadow: 0 6px 20px rgba(255, 77, 109, 0.18);
+
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
 }
 
 /* 品牌 */
@@ -96,7 +104,7 @@ body {
   font-weight: 800;
   font-style: oblique 12deg; /* 人工斜体 */
   letter-spacing: 0.15em;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  text-shadow: 0 0 14px rgba(255, 77, 109, 0.4); /* 品牌玫红光晕 */
 }
 
 /* 导航 */
@@ -108,13 +116,13 @@ body {
 /* 导航链接的基础样式 */
 .navbar-link {
   position: relative; /* 为下划线提供定位锚点 */
-  color: rgba(255, 255, 255, 0.88);
+  color: rgba(255, 255, 255, 0.75);
   text-decoration: none; /* 去掉下划线 */
   font-size: 0.95rem; /* 字号略小于品牌标题 */
   font-weight: 500; /* 中等粗细 */
   letter-spacing: 0.05em; /* 字间距 0.05em，略显优雅 */
   transition: color 0.2s ease; /* 颜色变化时 0.2 秒平滑过渡 */
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2); /* 阴影 */
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5); /* 阴影 */
 }
 
 /* 悬停下划线 */
@@ -173,7 +181,10 @@ body {
  * ============================================================ */
 
 /* 让图片墙区域可纵向弹性伸展（页脚贴底） */
-.wall { flex: 1; }
+.wall { 
+  flex: 1;
+  padding-top: 25px; /* 导航栏与图片展示的间隔*/
+ }
 
 /* 行：只露出本行内容，超出部分隐藏（滚动窗口） */
 .row {
@@ -191,10 +202,14 @@ body {
 .row-track {
   display: flex;
   flex: none;
-  gap: var(--row-gap);
   width: max-content;              /* 轨道按内容自然撑开 */
   animation: scroll 40s linear infinite;
 }
+
+/* 卡片统一右侧间距（不用 flex gap）：
+ * 两份序列拼接处也带同样间距 → 整条轨道间隔均匀、
+ * 且 -50% 平移恰好等于一整份宽度 → 无缝循环零误差 */
+.row-track .card { margin-right: var(--row-gap); }
 
 /*
  * 无缝循环的核心动画：
@@ -234,13 +249,13 @@ body {
   box-shadow: var(--card-shadow);
   transition: transform 0.35s ease, box-shadow 0.35s ease; /* 悬停过渡 */
 
-  background: #e9ebef;                        /* 加载前淡灰底,避免白闪 */
+  background: #23262c;                        /* 加载前深灰底,避免白闪 */
 }
 
 /* 悬停：图片轻微上浮 + 投影加深（克制的极简交互） */
 .card:hover img {
   transform: translateY(-6px);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
 }
 
 /* ============================================================
@@ -373,4 +388,41 @@ body {
   .row-track { animation: none; }
   .card img,
   .lb-btn    { transition: none; }
+}
+
+/* ============================================================
+ * 10. 404 页面（.site-header 等由 404.html 引用）
+ * ============================================================ */
+.site-header {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.site-title {
+  font-size: 2.4rem;
+  font-weight: 800;
+  color: var(--text-main);
+  letter-spacing: 0.05em;
+}
+
+.site-subtitle {
+  color: var(--text-sub);
+  font-size: 1rem;
+}
+
+.site-subtitle a {
+  color: var(--brand-1);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.site-subtitle a:hover {
+  color: var(--brand-deep);
+  text-decoration: underline;
 }

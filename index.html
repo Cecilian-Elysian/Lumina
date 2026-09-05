@@ -4,7 +4,7 @@
   流动图片墙 (Lumina) — 页面骨架
   ------------------------------------------------------------
   结构说明：
-    header    → 标题区（网站名称 + 副标题）
+    navbar    → 由 js/navbar.js 统一注入（自动高亮当前页）
     main#wall → 图片墙容器（多行叠层轨道，由 js/main.js 动态生成）
     footer    → 页脚（图片来源/版权说明）
     #lightbox → 灯箱预览（默认隐藏，点击图片后弹出大图）
@@ -21,7 +21,7 @@
   <!-- 视口设置：让手机端按设备宽度渲染，禁用缩放抖动 -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <!-- 主题色：移动浏览器顶部状态栏颜色，与页面背景一致 -->
-  <meta name="theme-color" content="#f7f7fa">
+  <meta name="theme-color" content="#14161a">
   <!-- 提前与图床建立 TCP/TLS 连接,首图加载提速 ~100-300ms -->
   <link rel="preconnect" href="https://7bu.top" crossorigin>
   <link rel="dns-prefetch" href="https://bu.dusays.com">
@@ -33,19 +33,10 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-
-
-  <!-- ========== 导航栏 ========== -->
-  <header class="navbar">
-    <div>
-      <h1 class="navbar-title">Lumina-Web</h1>
-    </div>
-    <nav class="navbar-nav" aria-label="主导航">
-      <a href="index.html"   class="navbar-link active">主页</a>
-      <a href="gallery.html" class="navbar-link">图集</a>
-      <a href="#settings"    class="navbar-link">设置</a>
-    </nav>
-  </header>
+  <!--
+  ========== 导航栏 ==========
+  由 js/navbar.js 统一注入（自动高亮当前页），无需在此手写。
+  -->
 
 
 <!--
@@ -93,6 +84,8 @@
 
   <!-- 配置文件必须先于主逻辑加载（main.js 依赖全局 CONFIG） -->
   <script src="js/config.js"></script>
+  <!-- 统一导航栏注入（defer 保证在 DOM 就绪后执行） -->
+  <script src="js/navbar.js" defer></script>
   <!-- 焦点数据 + 运行时（必须在 main.js 之前，定义全局 FOCAL_POINTS / FocalRuntime） -->
   <script src="js/focal-points.js"></script>
   <script src="js/focal-runtime.js"></script>

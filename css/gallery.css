@@ -27,7 +27,7 @@
   font-weight: 800;
   letter-spacing: 0.05em;
   color: var(--text-main);
-  text-shadow: 0 2px 8px rgba(255, 255, 255, 0.5);
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
 }
 
 .hero-subtitle {
@@ -44,9 +44,9 @@
   gap: 10px;
   min-width: 320px;
   padding: 12px 20px;
-  background: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.07);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 999px;
   color: var(--text-sub);
 }
@@ -85,9 +85,9 @@
  * 3. 卡片
  * ============================================================ */
 .gallery-card {
-  background: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.06);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: var(--card-radius);
   overflow: hidden;
   box-shadow: var(--card-shadow);
@@ -97,7 +97,7 @@
 
 .gallery-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
 }
 
 .gallery-card:focus-visible {
@@ -130,12 +130,12 @@
   white-space: nowrap;
 }
 
-/* 日期胶囊：截图那种浅灰圆角 */
+/* 日期胶囊：深色底上的浅色胶囊 */
 .gallery-card-date {
   flex: 0 0 auto;
   font-size: 0.8rem;
   color: var(--text-sub);
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.1);
   padding: 4px 10px;
   border-radius: 999px;
 }

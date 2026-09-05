@@ -4,7 +4,7 @@
   光影画廊 (gallery.html) — 页面骨架
   ------------------------------------------------------------
   结构说明：
-    header.navbar   → 复用主页顶栏，新增"主页"链接
+    navbar          → 由 js/navbar.js 统一注入（自动高亮当前页）
     .gallery-hero   → 标题 + 副标题 + 搜索框（暂不接功能）
     .gallery-main   → 相册网格（由 js/gallery.js 动态生成）
     #lightbox       → 复用主页灯箱，点击卡片打开
@@ -17,7 +17,7 @@
   <!-- 视口：手机端按设备宽度渲染 -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <!-- 主题色：与主页背景一致 -->
-  <meta name="theme-color" content="#f7f7fa">
+  <meta name="theme-color" content="#14161a">
   <!-- 提前与图床建立连接，首图加载提速 -->
   <link rel="preconnect" href="https://7bu.top" crossorigin>
   <link rel="dns-prefetch" href="https://bu.dusays.com">
@@ -30,18 +30,7 @@
   <link rel="stylesheet" href="css/gallery.css">
 </head>
 <body>
-
-  <!-- ========== 导航栏（与主页结构一致，"主页"链接指向 index.html） ========== -->
-  <header class="navbar">
-    <div>
-      <h1 class="navbar-title">Lumina-Web</h1>
-    </div>
-    <nav class="navbar-nav" aria-label="主导航">
-      <a href="index.html"   class="navbar-link">主页</a>
-      <a href="gallery.html" class="navbar-link active">图集</a>
-      <a href="#settings"    class="navbar-link">设置</a>
-    </nav>
-  </header>
+  <!-- 导航栏由 js/navbar.js 统一注入（自动高亮当前页），无需在此手写 -->
 
   <!-- ========== Hero 区：标题 + 副标题 + 搜索框 ========== -->
   <section class="gallery-hero">
@@ -79,6 +68,8 @@
     <p id="lb-caption" class="lb-caption"></p>
   </div>
 
+  <!-- 统一导航栏注入（defer 保证在 DOM 就绪后执行） -->
+  <script src="js/navbar.js" defer></script>
   <!-- 脚本：config.js 必须先于 gallery.js 加载 -->
   <script src="js/config.js"></script>
   <script src="js/gallery.js"></script>

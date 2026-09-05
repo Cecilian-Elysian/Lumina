@@ -60,9 +60,9 @@ export async function onRequest(context) {
       status: upstream.status,
       headers: {
         'Content-Type': 'application/json; charset=utf-8',
-        // 边缘缓存 5 分钟：多访客共享缓存，减少对图床的请求次数
-        // （图床接口限流 180 次/分钟，缓存可显著降低触发风险）
-        'Cache-Control': 'public, max-age=300',
+        // 列表每次加载都取最新：新增图片刷新即可见
+        // （个人小站访问量低，远低于图床 180 次/分钟限流）
+        'Cache-Control': 'public, no-cache',
       },
     });
   } catch (err) {
